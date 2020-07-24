@@ -8,4 +8,8 @@
     <Folder Include="wwwroot\lib\alertifyjs\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Twilio" Version="5.45.1" />
+  </ItemGroup>
+
 </Project>
