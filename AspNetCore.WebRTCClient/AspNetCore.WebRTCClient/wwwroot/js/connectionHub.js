@@ -17,6 +17,8 @@ $(document).ready(function () {
 
     localVideo = document.getElementById('local-video');
     remoteVideo = document.getElementById('remote-video');
+
+    // TO DO: Rest of the logic
 });
 
 const initializeSignalR = () => {
@@ -76,12 +78,51 @@ const userMediaSuccess = (stream) => {
     console.log('WebRTC: Got user media.');
     localStream = stream;
 
-    const videoTracks = localStream.getVideoTracks();
-    const audioTracks = localStream.getAudioTracks();
+    //const videoTracks = localStream.getVideoTracks();
+    //const audioTracks = localStream.getAudioTracks();
 
     localVideo.srcObject = stream;
 };
 
-const errorHandler = () => {
+sendHubSignal = (candidate, partnerClientId) => {
+    console.log('candidate', candidate);
+    console.log('SignalR: Called sendhubsignal');
 
+    signalRConnection
+        .invoke('sendsignal', candidate, partnerClientId)
+        .catch(errorHandler);
+};
+
+signalRConnection.onclose(e => {
+    if (e) {
+        console.log('SignalR: Closed with error.');
+        console.log(e);
+    }
+    else {
+        console.log('SignalR: Disconnected.');
+    }
+});
+
+signalRConnection.on('updateUserList', (userList) => {
+    console.log('SignalR: Called updateUserList with data - ' + JSON.stringify(userList));
+    $('#users-length').text(userList.length);
+    $('#users-data li.user').remove();
+
+    $.each(userList, function (index) {
+        var status = '';
+        if (userList[index].username === $('#upper-username').text()) {
+            myConnectionId = userList[index].connectionId;
+            status = 'Me';
+        }
+        status = userList[index].inCall ? 'In call' : 'Available';
+
+        var listString = '<li class="list-group-item user" data-cid="' + userList[index].connectionId + '" data-username="' + userList[index].username + '">';
+        listString += '<a href="#"><span class="username">' + userList[index].username + '</span>';
+        listString += '<span class="user-status"> ' + status + '</span></a></li>';
+        $('#users-data').append(listString);
+    });
+});
+
+const errorHandler = (error) => {
+    console.log(error);
 };
