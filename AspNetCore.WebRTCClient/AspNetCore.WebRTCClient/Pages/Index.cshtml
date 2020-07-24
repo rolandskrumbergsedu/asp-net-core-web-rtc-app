@@ -4,7 +4,51 @@
     ViewData["Title"] = "Home page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+    @*<div class="container-fluid">
+        <div class="row-fluid browser-warning">
+            <div class="span12">
+                <div class="alert alert-error">
+                    <h4>Your browser does not appear to support WebRTC.</h4>
+                    Try either the Mozilla Firefox or Google Chrome.
+                </div>
+            </div>
+        </div>
+    </div>*@
+    <div class="row-fluid">
+        <div class="span3">
+            <div class="card card-body bg-light actions">
+                <div id="call-status" class="status">
+                    Idle
+                </div>
+                <button class="btn btn-danger hangup">Hang up</button>
+            </div>
+            <div class="card card-body bg-light user-list">
+                <ul id="users-data" class="list-group">
+                    <li class="list-group-item">Online users <small id="users-length"></small></li>
+                    <li class="list-group-item user" data-cid="" data-username="">
+                        <a href="#">
+                            <div class="username"></div>
+                            <div class="helper" data-bind="css: $parent.getUserStatus($data)"></div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card card-body bg-light conn-type">
+                <button type="button" class="btn btn-dark">Connection type <span class="badge badge-secondary">Audio/video</span></button>
+            </div>
+        </div>
+        <div class="span9">
+            <div class="row-fluid">
+                <div class="span6">
+                    <h4>You</h4>
+                    <video class="video mine cool-background" autoplay="autoplay">
+                    </video>
+                </div>
+                <div class="span6">
+                    <h4>Partner</h4>
+                    <video class="video partner cool-background" autoplay="autoplay"> </video>
+                </div>
+            </div>
+        </div>
+    </div>
+
