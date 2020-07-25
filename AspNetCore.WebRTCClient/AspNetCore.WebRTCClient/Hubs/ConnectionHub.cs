@@ -69,14 +69,14 @@ namespace AspNetCore.WebRTCClient.Hubs
                     await Clients.Client(user.ConnectionId)
                         .CallEnded(callingUser, $"{callingUser.Username} has hang up.");
                 }
-            }
 
-            // Remove call from the list if there is only one (or none) person left.
-            // This should always trigger now, but will be useful when we implement conferencing.
-            currentCall.Users.RemoveAll(user => user.ConnectionId == callingUser.ConnectionId);
-            if (currentCall.Users.Count < 2)
-            {
-                _userCalls.Remove(currentCall);
+                // Remove call from the list if there is only one (or none) person left.
+                // This should always trigger now, but will be useful when we implement conferencing.
+                currentCall.Users.RemoveAll(user => user.ConnectionId == callingUser.ConnectionId);
+                if (currentCall.Users.Count < 2)
+                {
+                    _userCalls.Remove(currentCall);
+                }
             }
 
             // Remove all offers initiating from the caller
