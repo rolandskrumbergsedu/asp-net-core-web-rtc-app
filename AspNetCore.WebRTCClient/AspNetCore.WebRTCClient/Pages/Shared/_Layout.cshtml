@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link href="~/lib/alertifyjs/alertify.min.css" rel="stylesheet" />
     <link href="~/lib/alertifyjs/default.css" rel="stylesheet" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true"/>
 </head>
 <body data-mode="idle">
     <header>
@@ -42,11 +42,11 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/lib/signalr/signalr.min.js"></script>
     <script src="~/lib/alertifyjs/alertify.min.js"></script>
-    <script src="~/js/utilsRTC.js"></script>
-    <script src="~/js/constWebRTC.js"></script>
+    <script src="~/js/utilsRTC.js" asp-append-version="true"></script>
+    <script src="~/js/constWebRTC.js" asp-append-version="true"></script>
     <script src="~/lib/adapterjs/adapter.min.js"></script>
     <script src="~/lib/adapterjs/adapter.screenshare.min.js"></script>
-    <script src="~/js/connectionHub.js"></script>
+    <script src="~/js/connectionHub.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 
     @RenderSection("Scripts", required: false)

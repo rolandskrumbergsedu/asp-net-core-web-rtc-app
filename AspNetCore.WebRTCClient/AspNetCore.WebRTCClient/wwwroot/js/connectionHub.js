@@ -1,14 +1,13 @@
 ﻿var hubUrl = document.location.pathname + 'ConnectionHub';
 
 var signalRConnection = new signalR.HubConnectionBuilder()
-    .withUrl(hubUrl, signalR.HttpTransportType.WebSockets)
+    .withUrl(hubUrl)
     .build();
 
 var peerConnectionConfig = {
     "iceServers": ICE_SERVERS
 }
 
-var localStream = null;
 var localVideo = null;
 var remoteVideo = null;
 
@@ -55,65 +54,69 @@ $(document).ready(function () {
 
 });
 
-attachMediaStream = (e) => {
-    console.log('Called attachMediaStream()');
-
-    remoteVideo.srcObject = e.stream;
-};
-
-const receivedCandidateSignal = (connection, partnerClientId, candidate) => {
+function receivedCandidateSignal(connection, candidate) {
     console.log('WebRTC: Adding full candidate.', candidate);
 
-    connection.addIceCandidate(new RTCIceCandidate(candidate))
+    var candidate = new RTCIceCandidate(candidate);
+
+    connection.addIceCandidate(candidate)
         .catch(e => {
             console.log('Failed to add ICE candidate.', e);
         });
 };
 
-const receivedSdpSignal = (connection, partnerClientId, sdp) => {
+function receivedSdpSignal(connection, partnerClientId, sdp) {
     console.log('WebRTC: Processing SDP signal.');
 
-    connection.setRemoteDescription(new RTCSessionDescription(sdp), () => {
-        console.log('WebRTC: Setting remote description.');
-        if (connection.remoteDescription.type = 'offer') {
-            console.log('WebRTC: Remote description type is offer.');
-            connection.addStream(localStream);
-            console.log('WebRTC: Added local stream to connection.');
-            connection.createAnswer()
-                .then((desc) => {
-                    console.log('WebRTC: Creating answer..');
-                    connection.setLocalDescription(desc, () => {
-                        console.log('WebRTC: Setting local description.')
-                        sendHubSignal(JSON.stringify({ "sdp": connection.localDescription }), partnerClientId);
-                    }, errorHandler);
+    var desc = new RTCSessionDescription(sdp);
+    connection.setRemoteDescription(desc)
+        .then(function () {
+            console.log('Getting user devices.');
+            return navigator.mediaDevices.getUserMedia(WEBRTC_CONSTRAINTS);
+        })
+        .then(function (stream) {
+            console.log('Setting local stream.');
 
-                }, errorHandler);
-        } else if (connection.remoteDescription.type = 'answer') {
-            console.log('WebRTC: Remote description type is answer.');
-        }
+            localVideo.srcObject = stream;
 
-    }, errorHandler);
+            stream.getTracks().forEach(
+                transceiver = track => connection.addTransceiver(track, { streams: [stream] }));
+            console.log('Local stream set.');
+        })
+        .then(function () {
+            console.log('WebRTC: Creating answer.');
+            return connection.createAnswer();
+        })
+        .then(function (answer) {
+            console.log('WebRTC: Setting answer as local description.');
+            return connection.setLocalDescription(answer);
+        })
+        .then(function () {
+            console.log('WebRTC: Sending answer as SDP.');
+            sendHubSignal(JSON.stringify({ "sdp": connection.localDescription }), partnerClientId);
+        })
+        .catch(handleGetUserMediaError);
 };
 
-const newSignal = (partnerClientId, data) => {
+function newSignal(partnerClientId, data) {
     console.log('WebRTC: Called newSignal()');
 
     var signal = JSON.parse(data);
     var connection = getConnection(partnerClientId);
 
-    if (signal.idp) {
+    if (signal.sdp) {
         console.log('WebRTC: Received SDP signal');
         receivedSdpSignal(connection, partnerClientId, signal.sdp);
     } else if (signal.candidate) {
         console.log('WebRTC: Received Candidate signal');
-        receivedCandidateSignal(connection, partnerClientId, signal.candidate);
+        receivedCandidateSignal(connection, signal.candidate);
     } else {
         console.log('WebRTC: Adding null candidate');
         connection.addIceCandidate(null, () => console.log('Added null candidate'), () => console.log('WebRTC: Cannot add null candidate.'));
     } 
 };
 
-const initializeSignalR = () => {
+function initializeSignalR() {
     signalRConnection.start()
         .then(() => {
             console.log("SignalR connected.");
@@ -122,7 +125,7 @@ const initializeSignalR = () => {
         .catch((error) => { console.log(error) });
 };
 
-const setUsername = (username) => {
+function setUsername(username) {
     console.log('SignalR: Setting username.');
 
     signalRConnection.invoke('Join', username)
@@ -132,10 +135,9 @@ const setUsername = (username) => {
 
     $('#upper-username').text(username);
 
-   initializeUserMedia();
 };
 
-const askUsername = () => {
+function askUsername() {
     console.log("SignalR: Asking username.");
 
     alertify.prompt('Select a username', 'What is your name?', '', (evt, usernameFromPrompt) => {
@@ -150,7 +152,7 @@ const askUsername = () => {
     });
 };
 
-const generateRandomUsername = () => {
+function generateRandomUsername() {
 
     console.log('SignalR: Generating random username.');
 
@@ -161,12 +163,7 @@ const generateRandomUsername = () => {
     setUsername(username);
 };
 
-const initializeUserMedia = () => {
-    console.log('WebRTC: Initialize user media.');
-    navigator.getUserMedia(WEBRTC_CONSTRAINTS, userMediaSuccess, errorHandler);
-};
-
-const getConnection = (partnerClientId) => {
+function getConnection(partnerClientId) {
     console.log('WebRTC: Called getConnection()');
     if (connections[partnerClientId]) {
         console.log('WebRTC: Connections partner client exists.');
@@ -178,73 +175,78 @@ const getConnection = (partnerClientId) => {
     }
 };
 
-const initiateOffer = (partnerClientId, stream) => {
+function initiateOffer(partnerClientId) {
     console.log('WebRTC: Called initiateOffer.');
     var connection = getConnection(partnerClientId);
 
-    connection.addStream(stream);
-    console.log('WebRTC: Added local stream.');
-
-    connection.createOffer()
-        .then(offer => {
-            console.log('WebRTC: Created offer.');
-            console.log('WebRTC: Description after offer - ', offer);
-            connection.setLocalDescription(offer)
-                .then(() => {
-                    console.log('WebRTC: Set local description.');
-                    console.log('WebRTC: Connection before sending offer - ', connection);
-                    setTimeout(() => {
-                        sendHubSignal(JSON.stringify({"sdp": connection.localDescription}), partnerClientId);
-                    }, 1000);
-                })
-                .catch(err => console.error('WebRTC: Error while setting local description', err));
+    navigator.mediaDevices.getUserMedia(WEBRTC_CONSTRAINTS)
+        .then(function (stream) {
+            document.getElementById('local-video').srcObject = stream;
+            stream.getTracks().forEach(
+                transceiver = track => connection.addTransceiver(track, {streams: [stream] }));
         })
-        .catch(err => console.error('WebRTC: Error while creating offer', err));
+        .catch(handleGetUserMediaError);
+
+    console.log('WebRTC: Added local stream.');
 };
 
-const userMediaSuccess = (stream) => {
-    console.log('WebRTC: Got user media.');
-    localStream = stream;
-    localVideo.srcObject = stream;
-};
+function handleGetUserMediaError(e) {
+    switch (e.name) {
+        case "NotFoundError":
+            console.log("Unable to open a call because no camera and/or microphone were found.");
+            break;
+        case "SecurityError":
+        case "PermissionDeniedError":
+            console.log("Security issue accessing user media.");
+            break;
+        default:
+            console.log("Error accessing user media.", e);
+            break;
+    }
 
-const onStreamRemoved = (connection, stream) => {
-    console.log('WebRTC: Stream removed.')
-    console.log('Stream: ', stream);
-    console.log('Connection: ', connection);
-};
+    //closeAllConnections();
+}
 
-const closeConnection = (partnerClientId) => {
+function closeConnection(partnerClientId) {
     console.log('WebRTC: Closing connection ' + partnerClientId);
     var connection = connections[partnerClientId];
 
     if (connection) {
-        onStreamRemoved(null, null);
+        connection.ontrack = null;
+        connection.onremovetrack = null;
+        connection.onremovestream = null;
+        connection.onicecandidate = null;
+        connection.oniceconnectionstatechange = null;
+        connection.onicegatheringstatechange = null;
+        connection.onsignalingstatechange = null;
+        connection.onnegotiationneeded = null;
+
+        if (localVideo.srcObject) {
+            localVideo.srcObject.getTracks().forEach(track => track.stop());
+        }
+
+        if (remoteVideo.srcObject) {
+            remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+        }
+
         connection.close();
-        delete connections[partnerClientId];
+        connection = null;
     }
+
+    localVideo.removeAttribute('src');
+    localVideo.removeAttribute('srcObject');
+    remoteVideo.removeAttribute('src');
+    remoteVideo.removeAttribute('srcObject');
 }
 
-const closeAllConnections = () => {
+function closeAllConnections() {
     console.log('WebRTC: Closing all connections.');
     for (var connectionId in connections) {
         closeConnection(connectionId);
     }
 };
 
-const callbackRemoveStream = () => {
-    console.log('WebRTC: Called callbackRemoveStream()');
-
-    remoteVideo.srcObject = null;
-};
-
-const callbackAddStream = (connection, evt) => {
-    console.log('WebRTC: Called callbackAddStream()');
-
-    attachMediaStream(evt);
-};
-
-const callbackIceCandidate = (connection, evt, partnerClientId) => {
+function handleIceCandidate(evt, partnerClientId) {
     console.log('WebRTC: ICE Candidate callback.');
     if (evt.candidate) {
         console.log('WebRTC: New ICE candidate.');
@@ -255,26 +257,86 @@ const callbackIceCandidate = (connection, evt, partnerClientId) => {
     }
 }
 
-const initializeConnection = (partnerClientId) => {
+function handleTrackEvent(event) {
+    console.log('WebRTC: Adding remote track.');
+    remoteVideo.srcObject = event.streams[0];
+}
+
+function handleRemoveTrackEvent(event) {
+    console.log('WebRTC: Removing remote track.');
+    var stream = remoteVideo.srcObject;
+    var trackList = stream.getTracks();
+
+    if (trackList.length == 0) {
+        closeAllConnections();
+    }
+}
+
+function handleNegotiationNeededEvent(connection, evt, partnerClientId) {
+    connection.createOffer()
+        .then(function (offer) {
+
+            console.log('WebRTC: Created offer.');
+            console.log('WebRTC: Setting local description.');
+
+            return connection.setLocalDescription(offer);
+        })
+        .then(function () {
+            console.log('SignalR: Sending local description as SDP to partner.');
+            sendHubSignal(JSON.stringify({
+                "sdp": connection.localDescription
+            }), partnerClientId);
+        })
+        .catch(errorHandler);
+}
+
+function handleICEConnectionStateChangeEvent(connection, event) {
+    console.log('ICE connection state changed to: ' + connection.iceConnectionState);
+    switch (connection.iceConnectionState) {
+        case 'closed':
+        case 'failed':
+            closeAllConnections();
+            break;
+    }
+}
+
+function handleSignalingStateChangeEvent(connection, event) {
+    console.log('Signaling state changed to: ' + connection.signalingState);
+    switch (connection.signalingState) {
+        case 'closed':
+            closeAllConnections();
+            break;
+    }
+}
+
+function handleICEGatheringStateChangeEvent(connection, event) {
+    console.log('Signaling state changed to: ' + connection.iceGatheringState);
+}
+
+function initializeConnection(partnerClientId) {
     console.log('WebRTC: Initializing connection..');
 
     var connection = new RTCPeerConnection(peerConnectionConfig);
 
-    connection.onicecandidate = evt => callbackIceCandidate(connection, evt, partnerClientId);
-    connection.onaddstream = evt => callbackAddStream(connection, evt);
-    connection.onremovestream = evt => callbackRemoveStream(connection, evt);
+    connection.onicecandidate = evt => handleIceCandidate(evt, partnerClientId);
+    connection.ontrack = evt => handleTrackEvent(evt);
+    connection.onnegotiationneeded = evt => handleNegotiationNeededEvent(connection, evt, partnerClientId);
+    connection.onremovetrack = evt => handleRemoveTrackEvent(evt);
+    connection.oniceconnectionstatechange = evt => handleICEConnectionStateChangeEvent(connection, evt);
+    connection.onicegatheringstatechange = evt => handleICEGatheringStateChangeEvent(connection, evt);
+    connection.onsignalingstatechange = evt => handleSignalingStateChangeEvent(connection, evt);
 
     connections[partnerClientId] = connection;
     return connection;
 
 };
 
-sendHubSignal = (candidate, partnerClientId) => {
-    console.log('candidate', candidate);
+function sendHubSignal(message, partnerClientId) {
+    console.log('message', message);
     console.log('SignalR: Called sendhubsignal');
 
     signalRConnection
-        .invoke('sendsignal', candidate, partnerClientId)
+        .invoke('sendsignal', message, partnerClientId)
         .catch(errorHandler);
 };
 
@@ -335,7 +397,7 @@ signalRConnection.on('receiveSignal', (signalingUser, signal) => {
 signalRConnection.on('callAccepted', (acceptingUser) => {
     console.log('SignalR: Call accepted from: ' + JSON.stringify(acceptingUser) + '. Initiating WebRTC call and offering my stream up..');
 
-    initiateOffer(acceptingUser.connectionId, localStream);
+    initiateOffer(acceptingUser.connectionId);
     $('body').attr('data-mode', 'incall');
     $('#call-status').text('In call')
 
